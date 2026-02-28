@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinSearch — Stock & Financial News</title>
+  <style>
+    /* ── Theme tokens ── */
+    :root {
+      --bg:          #080e1c;
+      --surface:     #0f1929;
+      --card:        #152035;
+      --border:      #1e3050;
+      --text:        #e8eef7;
+      --text-muted:  #8899b4;
+      --text-dim:    #5a6a85;
+      --accent:      #4d9eff;
+      --accent-h:    #2f85f0;
+      --positive:    #00d98b;
+      --negative:    #ff4d6a;
+      --gold:        #ffb300;
+      --badge-bg:    #1a2d4a;
+      --shadow:      rgba(0,0,0,0.5);
+      --toggle-bg:   #152035;
+      --spinner-t:   #1e3050;
+      --img-ph:      #1a2a40;
+      --table-alt:   rgba(255,255,255,0.03);
+      --hero-border: #1e3050;
+    }
+    [data-theme="light"] {
+      --bg:          #eef2f8;
+      --surface:     #ffffff;
+      --card:        #ffffff;
+      --border:      #d4dde9;
+      --text:        #0d1929;
+      --text-muted:  #4a5f7e;
+      --text-dim:    #8898b2;
+      --accent:      #1a6fee;
+      --accent-h:    #0d5cd9;
+      --positive:    #009e63;
+      --negative:    #e0284a;
+      --gold:        #c48a00;
+      --badge-bg:    #deeafd;
+      --shadow:      rgba(0,0,0,0.1);
+      --toggle-bg:   #ffffff;
+      --spinner-t:   #d4dde9;
+      --img-ph:      #dde4ef;
+      --table-alt:   rgba(0,0,0,0.03);
+      --hero-border: #d4dde9;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.25s, color 0.25s;
+    }
+
+    /* ── Theme toggle ── */
+    #theme-toggle {
+      position: fixed; top: 1rem; right: 1.25rem; z-index: 200;
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 2rem; border: 1.5px solid var(--border);
+      background: var(--toggle-bg); color: var(--text-dim);
+      font-size: 0.82rem; font-weight: 500; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s, background 0.25s;
+    }
+    #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Header / search ── */
+    header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+    }
+    header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; color: var(--text); }
+    header h1 span { color: var(--accent); }
+    header p { color: var(--text-dim); font-size: 0.92rem; margin: 0.35rem 0 1.75rem; }
+
+    #search-wrap {
+      position: relative;
+      display: flex; gap: 0.5rem;
+      max-width: 620px; margin: 0 auto;
+      padding: 0 1rem;
+    }
+    #search-input {
+      flex: 1; padding: 0.8rem 1.25rem;
+      border: 1.5px solid var(--border); border-radius: 2rem;
+      background: var(--surface); color: var(--text);
+      font-size: 1rem; outline: none;
+      transition: border-color 0.2s, background 0.25s;
+    }
+    #search-input::placeholder { color: var(--text-dim); }
+    #search-input:focus { border-color: var(--accent); }
+    #search-btn {
+      padding: 0.8rem 1.6rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 2rem;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, transform 0.1s; white-space: nowrap;
+    }
+    #search-btn:hover { background: var(--accent-h); }
+    #search-btn:active { transform: scale(0.97); }
+
+    /* Autocomplete dropdown */
+    #autocomplete {
+      position: absolute; top: calc(100% + 6px); left: 1rem; right: 1rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      box-shadow: 0 8px 32px var(--shadow);
+      z-index: 100;
+    }
+    #autocomplete[hidden] { display: none; }
+    .ac-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.65rem 1rem; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .ac-item:hover { background: var(--badge-bg); }
+    .ac-ticker {
+      font-weight: 700; font-size: 0.88rem; color: var(--accent);
+      background: var(--badge-bg); padding: 0.15rem 0.5rem;
+      border-radius: 4px; white-space: nowrap;
+    }
+    .ac-name { font-size: 0.88rem; color: var(--text-muted); }
+    .ac-exchange { font-size: 0.78rem; color: var(--text-dim); margin-left: auto; }
+
+    /* ── Main content area ── */
+    #main { max-width: 1200px; margin: 0 auto; padding: 0 1rem 4rem; }
+
+    /* ── Search status ── */
+    #search-status { text-align: center; padding: 1.5rem; color: var(--text-dim); font-size: 0.95rem; }
+
+    /* ── Company hero ── */
+    #company-hero {
+      background: var(--surface);
+      border: 1px solid var(--hero-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      transition: background 0.25s;
+    }
+    #company-hero[hidden] { display: none; }
+
+    .hero-top {
+      display: flex; align-items: flex-start; gap: 1rem; flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    #co-logo {
+      width: 56px; height: 56px; border-radius: 10px;
+      object-fit: contain; background: var(--img-ph);
+      border: 1px solid var(--border); flex-shrink: 0;
+    }
+    .hero-identity { flex: 1; min-width: 0; }
+    #co-name { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+    .hero-meta {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+      margin-top: 0.4rem;
+    }
+    .ticker-badge {
+      background: var(--badge-bg); color: var(--accent);
+      font-size: 0.82rem; font-weight: 700; padding: 0.2rem 0.6rem;
+      border-radius: 5px; letter-spacing: 0.05em;
+    }
+    .meta-tag {
+      font-size: 0.8rem; color: var(--text-dim);
+      background: var(--card); padding: 0.2rem 0.6rem;
+      border-radius: 5px; border: 1px solid var(--border);
+    }
+
+    .hero-price { text-align: right; flex-shrink: 0; }
+    #co-price { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+    #co-change {
+      font-size: 0.85rem; font-weight: 600; margin-top: 0.2rem;
+      padding: 0.15rem 0.5rem; border-radius: 4px; display: inline-block;
+    }
+    #co-change.up   { color: var(--positive); background: rgba(0,217,139,0.1); }
+    #co-change.down { color: var(--negative); background: rgba(255,77,106,0.1); }
+
+    #co-description {
+      font-size: 0.88rem; color: var(--text-muted); line-height: 1.65;
+      display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .hero-stats {
+      display: flex; flex-wrap: wrap; gap: 1rem;
+      margin-top: 1rem; padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .stat { flex: 1; min-width: 100px; }
+    .stat-label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-top: 0.2rem; }
+
+    /* ── Tab bar ── */
+    #tab-bar {
+      display: flex; gap: 0.25rem;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 1.5rem; overflow-x: auto;
+    }
+    #tab-bar[hidden] { display: none; }
+    .tab {
+      padding: 0.65rem 1.4rem;
+      background: transparent; border: none;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+      color: var(--text-dim); font-size: 0.9rem; font-weight: 500;
+      cursor: pointer; white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block; width: 1.2rem; height: 1.2rem;
+      border: 2.5px solid var(--spinner-t); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .section-status { color: var(--text-dim); font-size: 0.9rem; padding: 1rem 0; }
+    .error-msg { color: var(--negative); font-size: 0.9rem; }
+
+    /* ─── NEWS TAB ─────────────────────────────────────────────── */
+    #news-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.1rem;
+    }
+    @media (max-width: 900px) { #news-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { #news-grid { grid-template-columns: 1fr; } }
+
+    .news-card {
+      background: var(--card); border-radius: 12px; overflow: hidden;
+      display: flex; flex-direction: column;
+      border: 1px solid var(--border);
+      transition: transform 0.18s, box-shadow 0.18s, background 0.25s;
+    }
+    .news-card:hover { transform: translateY(-3px); box-shadow: 0 6px 24px var(--shadow); }
+    .news-card-img { width: 100%; height: 160px; object-fit: cover; background: var(--img-ph); display: block; }
+    .news-card-ph {
+      width: 100%; height: 160px; background: var(--img-ph);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; color: var(--text-dim);
+    }
+    .news-card-body { padding: 0.9rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+    .news-card-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .news-source {
+      background: var(--badge-bg); color: var(--accent);
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 0.15rem 0.5rem; border-radius: 4px;
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .news-date { font-size: 0.75rem; color: var(--text-dim); margin-left: auto; white-space: nowrap; }
+    .news-title a {
+      color: var(--text); text-decoration: none; font-size: 0.9rem;
+      font-weight: 600; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .news-title a:hover { color: var(--accent); }
+    .news-desc {
+      color: var(--text-muted); font-size: 0.82rem; line-height: 1.5;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+      flex: 1;
+    }
+
+    /* ─── REPORTS TAB ───────────────────────────────────────────── */
+    .reports-section { margin-bottom: 2rem; }
+    .reports-section h3 {
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      margin-bottom: 1rem; padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Key metrics grid */
+    .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+    @media (max-width: 700px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+    .metric-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem; transition: background 0.25s;
+    }
+    .metric-label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+    .metric-value { font-size: 1.15rem; font-weight: 700; color: var(--text); margin-top: 0.35rem; }
+    .metric-sub   { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; }
+    .metric-value.up   { color: var(--positive); }
+    .metric-value.down { color: var(--negative); }
+
+    /* Quarterly table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th {
+      text-align: left; padding: 0.6rem 0.85rem;
+      color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border); font-weight: 600;
+    }
+    thead th:not(:first-child) { text-align: right; }
+    tbody td {
+      padding: 0.7rem 0.85rem;
+      border-bottom: 1px solid var(--border); color: var(--text-muted);
+    }
+    tbody td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody td:first-child { color: var(--text); font-weight: 600; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:nth-child(even) { background: var(--table-alt); }
+
+    /* Filings list */
+    .filing-item {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      padding: 0.85rem 0; border-bottom: 1px solid var(--border);
+    }
+    .filing-item:last-child { border-bottom: none; }
+    .filing-type {
+      font-size: 0.8rem; font-weight: 700; color: var(--gold);
+      background: rgba(255,179,0,0.1); padding: 0.2rem 0.6rem;
+      border-radius: 4px; white-space: nowrap;
+    }
+    .filing-info { flex: 1; min-width: 0; }
+    .filing-date { font-size: 0.82rem; color: var(--text-dim); }
+    .filing-desc { font-size: 0.88rem; color: var(--text); margin-top: 0.15rem; }
+    .filing-link {
+      font-size: 0.82rem; font-weight: 600; color: var(--accent);
+      text-decoration: none; white-space: nowrap;
+    }
+    .filing-link:hover { text-decoration: underline; }
+
+    /* ─── PEOPLE TAB ────────────────────────────────────────────── */
+    #people-filters {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem;
+    }
+    .pf-chip {
+      padding: 0.35rem 1rem; border-radius: 2rem;
+      border: 1.5px solid var(--border); background: transparent;
+      color: var(--text-dim); font-size: 0.85rem; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .pf-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .pf-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+    #people-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    @media (max-width: 800px) { #people-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { #people-grid { grid-template-columns: 1fr; } }
+
+    .person-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.15rem;
+      display: flex; flex-direction: column; gap: 0.4rem;
+      transition: background 0.25s, transform 0.15s;
+    }
+    .person-card:hover { transform: translateY(-2px); }
+    .person-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--badge-bg); display: flex; align-items: center;
+      justify-content: center; font-size: 1.1rem; font-weight: 700;
+      color: var(--accent); margin-bottom: 0.25rem; flex-shrink: 0;
+    }
+    .person-name { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .person-title { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+    .person-category {
+      display: inline-block; margin-top: 0.3rem;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      padding: 0.15rem 0.5rem; border-radius: 4px;
+    }
+    .cat-csuite { background: rgba(77,158,255,0.15); color: var(--accent); }
+    .cat-board  { background: rgba(255,179,0,0.12);  color: var(--gold); }
+    .cat-other  { background: rgba(136,153,180,0.15); color: var(--text-muted); }
+    .person-pay { font-size: 0.8rem; color: var(--text-dim); margin-top: auto; padding-top: 0.5rem; }
+
+    /* No-results */
+    .empty-msg { color: var(--text-dim); font-size: 0.9rem; text-align: center; padding: 2rem; }
+  </style>
+</head>
+<body>
+
+<button id="theme-toggle" aria-label="Toggle theme">
+  <span id="toggle-icon">🌙</span>
+  <span id="toggle-label">Dark</span>
+</button>
+
+<header>
+  <h1>Fin<span>Search</span></h1>
+  <p>Search by company name or stock ticker · News · Reports · People</p>
+  <div id="search-wrap">
+    <input id="search-input" type="search" placeholder="e.g. Apple or AAPL" autocomplete="off" aria-label="Search company" />
+    <button id="search-btn">Search</button>
+    <div id="autocomplete" hidden></div>
+  </div>
+</header>
+
+<div id="main">
+  <div id="search-status"></div>
+
+  <!-- Company hero -->
+  <div id="company-hero" hidden>
+    <div class="hero-top">
+      <img id="co-logo" src="" alt="" onerror="this.style.display='none'" />
+      <div class="hero-identity">
+        <div id="co-name"></div>
+        <div class="hero-meta">
+          <span id="co-ticker" class="ticker-badge"></span>
+          <span id="co-exchange" class="meta-tag"></span>
+          <span id="co-sector"   class="meta-tag"></span>
+          <span id="co-industry" class="meta-tag"></span>
+        </div>
+      </div>
+      <div class="hero-price">
+        <div id="co-price"></div>
+        <div id="co-change"></div>
+      </div>
+    </div>
+    <div id="co-description"></div>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-label">Market Cap</div><div id="st-mktcap"  class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">P/E Ratio</div> <div id="st-pe"      class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">52w High</div>  <div id="st-52h"     class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">52w Low</div>   <div id="st-52l"     class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">Avg Volume</div><div id="st-vol"     class="stat-value">—</div></div>
+      <div class="stat"><div class="stat-label">Dividend Yield</div><div id="st-div" class="stat-value">—</div></div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="tab-bar" hidden>
+    <button class="tab active" data-tab="news">📰 News</button>
+    <button class="tab" data-tab="reports">📊 Financial Reports</button>
+    <button class="tab" data-tab="people">👤 People</button>
+  </div>
+
+  <!-- NEWS panel -->
+  <div id="panel-news">
+    <div id="news-status" class="section-status"></div>
+    <div id="news-grid"></div>
+  </div>
+
+  <!-- REPORTS panel -->
+  <div id="panel-reports" hidden>
+    <div id="reports-status" class="section-status"></div>
+    <div id="reports-content"></div>
+  </div>
+
+  <!-- PEOPLE panel -->
+  <div id="panel-people" hidden>
+    <div id="people-filters">
+      <button class="pf-chip active" data-filter="all">All</button>
+      <button class="pf-chip" data-filter="csuite">C-Suite &amp; Executives</button>
+      <button class="pf-chip" data-filter="board">Board of Directors</button>
+    </div>
+    <div id="people-status" class="section-status"></div>
+    <div id="people-grid"></div>
+  </div>
+</div>
+
+<script>
+  // ─── API Keys ─────────────────────────────────────────────────────────────
+  // FMP: free key at https://financialmodelingprep.com/developer/docs
+  const FMP_KEY  = 'tfSmGGUTKgbOyx1yC75Ppdl5bv2VXQNw';
+  // NewsAPI: free key at https://newsapi.org
+  const NEWS_KEY = '1c2e2714133a4baeae8481a5973a6cf5';
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const FMP_BASE  = 'https://financialmodelingprep.com/stable';
+  const PROXY     = 'https://corsproxy.io/?';
+
+  async function fmpFetch(path) {
+    const sep = path.includes('?') ? '&' : '?';
+    const url = `${FMP_BASE}${path}${sep}apikey=${FMP_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`FMP ${res.status}`);
+    return res.json();
+  }
+
+  async function newsFetch(q) {
+    const params = new URLSearchParams({
+      q, language: 'en', sortBy: 'publishedAt', pageSize: '30', apiKey: NEWS_KEY
+    });
+    const target = `https://newsapi.org/v2/everything?${params}`;
+    const res = await fetch(PROXY + encodeURIComponent(target));
+    return res.json();
+  }
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let currentTicker   = '';
+  let allPeople       = [];
+  let activeFilter    = 'all';
+  let acTimer         = null;
+
+  // ── Elements ───────────────────────────────────────────────────────────────
+  const searchInput  = document.getElementById('search-input');
+  const searchBtn    = document.getElementById('search-btn');
+  const acDropdown   = document.getElementById('autocomplete');
+  const searchStatus = document.getElementById('search-status');
+  const heroEl       = document.getElementById('company-hero');
+  const tabBar       = document.getElementById('tab-bar');
+
+  const panels = {
+    news:    document.getElementById('panel-news'),
+    reports: document.getElementById('panel-reports'),
+    people:  document.getElementById('panel-people'),
+  };
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  const themeToggle = document.getElementById('theme-toggle');
+  applyTheme(localStorage.getItem('theme') || 'dark');
+
+  themeToggle.addEventListener('click', () => {
+    applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    const dark = t === 'dark';
+    document.getElementById('toggle-icon').textContent  = dark ? '🌙' : '☀️';
+    document.getElementById('toggle-label').textContent = dark ? 'Dark' : 'Light';
+  }
+
+  // ── Autocomplete ───────────────────────────────────────────────────────────
+  searchInput.addEventListener('input', () => {
+    clearTimeout(acTimer);
+    const q = searchInput.value.trim();
+    if (q.length < 1) { acDropdown.hidden = true; return; }
+    acTimer = setTimeout(() => fetchSuggestions(q), 280);
+  });
+
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { acDropdown.hidden = true; triggerSearch(); }
+    if (e.key === 'Escape') { acDropdown.hidden = true; }
+  });
+
+  searchBtn.addEventListener('click', () => { acDropdown.hidden = true; triggerSearch(); });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#search-wrap')) acDropdown.hidden = true;
+  });
+
+  async function fetchSuggestions(q) {
+    if (FMP_KEY === 'YOUR_FMP_KEY_HERE') return;
+    try {
+      // Try both symbol and name search in parallel, merge and dedupe
+      const [bySymbol, byName] = await Promise.allSettled([
+        fmpFetch(`/search-symbol?query=${encodeURIComponent(q)}&limit=6`),
+        fmpFetch(`/search-name?query=${encodeURIComponent(q)}&limit=6`),
+      ]);
+      const seen = new Set();
+      const results = [];
+      for (const r of [bySymbol, byName]) {
+        if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+          r.value.forEach(item => { if (!seen.has(item.symbol)) { seen.add(item.symbol); results.push(item); } });
+        }
+      }
+      if (results.length === 0) { acDropdown.hidden = true; return; }
+      acDropdown.innerHTML = '';
+      results.slice(0, 8).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'ac-item';
+        div.innerHTML = `
+          <span class="ac-ticker">${escHtml(item.symbol)}</span>
+          <span class="ac-name">${escHtml(item.name)}</span>
+          <span class="ac-exchange">${escHtml(item.exchange || item.exchangeFullName || '')}</span>
+        `;
+        div.addEventListener('click', () => {
+          searchInput.value = item.symbol;
+          acDropdown.hidden = true;
+          loadCompany(item.symbol, item.name);
+        });
+        acDropdown.appendChild(div);
+      });
+      acDropdown.hidden = false;
+    } catch { acDropdown.hidden = true; }
+  }
+
+  function triggerSearch() {
+    const q = searchInput.value.trim();
+    if (!q) return;
+    // If looks like a ticker (≤5 chars, alphanumeric), search directly; otherwise resolve via API
+    loadCompany(q.toUpperCase(), '');
+  }
+
+  // ── Load company ───────────────────────────────────────────────────────────
+  async function loadCompany(ticker, hint) {
+    if (FMP_KEY === 'YOUR_FMP_KEY_HERE') {
+      setSearchStatus(`<span class="error-msg">⚠️ FMP API key not set. Get a free key at
+        <a href="https://financialmodelingprep.com/developer/docs" target="_blank" rel="noopener" style="color:var(--accent)">financialmodelingprep.com</a>
+        and replace <code>YOUR_FMP_KEY_HERE</code> in the script.</span>`);
+      return;
+    }
+    setSearchStatus('<span class="spinner"></span> Loading company data…');
+    heroEl.hidden = true;
+    tabBar.hidden = true;
+    Object.values(panels).forEach(p => p.hidden = true);
+
+    try {
+      // Resolve ticker: if input is a name (spaces or long), search first
+      let resolvedTicker = ticker;
+      if (ticker.includes(' ') || ticker.length > 6) {
+        const results = await fmpFetch(`/search-name?query=${encodeURIComponent(ticker)}&limit=1`);
+        if (!results?.length) throw new Error(`No company found for "${ticker}"`);
+        resolvedTicker = results[0].symbol;
+      }
+      currentTicker = resolvedTicker;
+
+      // Fetch profile
+      const profiles = await fmpFetch(`/profile?symbol=${resolvedTicker}`);
+      if (!profiles?.length) throw new Error(`No data found for ticker "${resolvedTicker}"`);
+      const p = profiles[0];
+
+      renderHero(p);
+      setSearchStatus('');
+      heroEl.hidden = false;
+      tabBar.hidden = false;
+      panels.news.hidden = false;
+      switchTab('news');
+
+      // Load all tabs in parallel
+      loadNews(resolvedTicker, p.companyName);
+      loadReports(resolvedTicker);
+      loadPeople(resolvedTicker);
+
+    } catch (err) {
+      setSearchStatus(`<span class="error-msg">⚠️ ${escHtml(err.message)}</span>`);
+    }
+  }
+
+  // ── Render hero ────────────────────────────────────────────────────────────
+  function renderHero(p) {
+    const logo = document.getElementById('co-logo');
+    logo.src   = p.image || '';
+    logo.style.display = p.image ? '' : 'none';
+
+    document.getElementById('co-name').textContent     = p.companyName || p.symbol;
+    document.getElementById('co-ticker').textContent   = p.symbol;
+    document.getElementById('co-exchange').textContent   = p.exchange || p.exchangeFullName || '';
+    document.getElementById('co-sector').textContent     = p.sector || '';
+    document.getElementById('co-industry').textContent   = p.industry || '';
+    document.getElementById('co-description').textContent = p.description || '';
+
+    // Price
+    const priceEl  = document.getElementById('co-price');
+    const changeEl = document.getElementById('co-change');
+    priceEl.textContent = p.price != null ? `$${fmt(p.price)}` : '—';
+    const chg = p.change; const chgPct = p.changePercentage;
+    if (chg != null) {
+      const sign = chg >= 0 ? '+' : '';
+      changeEl.textContent = `${sign}${fmt(chg)} (${sign}${typeof chgPct === 'number' ? chgPct.toFixed(2) : chgPct}%)`;
+      changeEl.className   = chg >= 0 ? 'up' : 'down';
+    } else {
+      changeEl.textContent = ''; changeEl.className = '';
+    }
+
+    // Stats — range format is "low-high"
+    let w52low = '—', w52high = '—';
+    if (p.range) {
+      const parts = p.range.split('-');
+      w52low  = parts[0]?.trim() || '—';
+      w52high = parts[parts.length - 1]?.trim() || '—';
+    }
+    setText('st-mktcap', p.marketCap    != null ? fmtLarge(p.marketCap)    : '—');
+    setText('st-pe',     p.pe           != null ? fmt(p.pe)                 : '—');
+    setText('st-52h',    w52high);
+    setText('st-52l',    w52low);
+    setText('st-vol',    p.averageVolume != null ? fmtLarge(p.averageVolume): '—');
+    setText('st-div',    p.lastDividend  != null ? `$${fmt(p.lastDividend)}`: '—');
+  }
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  document.getElementById('tab-bar').addEventListener('click', e => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    switchTab(btn.dataset.tab);
+  });
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    Object.entries(panels).forEach(([k, el]) => el.hidden = k !== name);
+  }
+
+  // ── NEWS ───────────────────────────────────────────────────────────────────
+  async function loadNews(ticker, companyName) {
+    const statusEl = document.getElementById('news-status');
+    const gridEl   = document.getElementById('news-grid');
+    statusEl.innerHTML = '<span class="spinner"></span> Fetching news…';
+    gridEl.innerHTML   = '';
+
+    const articles = [];
+
+    // NewsAPI
+    if (NEWS_KEY && NEWS_KEY !== 'YOUR_API_KEY_HERE') {
+      try {
+        const q    = companyName ? `${companyName} OR ${ticker}` : ticker;
+        const data = await newsFetch(q);
+        if (data.articles) {
+          data.articles.forEach(a => {
+            if (!a.title || a.title === '[Removed]') return;
+            if (articles.some(x => x.title === a.title)) return; // dedupe
+            articles.push({
+              title:       a.title,
+              description: a.description || '',
+              url:         a.url,
+              urlToImage:  a.urlToImage,
+              publishedAt: a.publishedAt,
+              source:      a.source?.name || 'News',
+            });
+          });
+        }
+      } catch { /* continue */ }
+    }
+
+    // Sort by date desc
+    articles.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
+    if (articles.length === 0) {
+      statusEl.innerHTML = '<span class="empty-msg">No news articles found.</span>';
+      return;
+    }
+    statusEl.innerHTML = `<span style="color:var(--text-dim);font-size:.88rem">${articles.length} articles found</span>`;
+
+    const frag = document.createDocumentFragment();
+    articles.forEach(a => frag.appendChild(buildNewsCard(a)));
+    gridEl.appendChild(frag);
+  }
+
+  function buildNewsCard(a) {
+    const card = document.createElement('article');
+    card.className = 'news-card';
+
+    if (a.urlToImage) {
+      const img = document.createElement('img');
+      img.className = 'news-card-img'; img.src = a.urlToImage; img.alt = ''; img.loading = 'lazy';
+      img.onerror = () => img.replaceWith(newsPlaceholder());
+      card.appendChild(img);
+    } else { card.appendChild(newsPlaceholder()); }
+
+    const body = document.createElement('div');
+    body.className = 'news-card-body';
+
+    const meta = document.createElement('div');
+    meta.className = 'news-card-meta';
+    meta.innerHTML = `
+      <span class="news-source">${escHtml(a.source)}</span>
+      <time class="news-date">${formatDate(a.publishedAt)}</time>
+    `;
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'news-title';
+    titleEl.innerHTML = `<a href="${escHtml(a.url)}" target="_blank" rel="noopener noreferrer">${escHtml(a.title)}</a>`;
+
+    const desc = document.createElement('p');
+    desc.className   = 'news-desc';
+    desc.textContent = a.description;
+
+    body.append(meta, titleEl, desc);
+    card.appendChild(body);
+    return card;
+  }
+
+  function newsPlaceholder() {
+    const d = document.createElement('div');
+    d.className = 'news-card-ph'; d.textContent = '📈';
+    return d;
+  }
+
+  // ── REPORTS ────────────────────────────────────────────────────────────────
+  async function loadReports(ticker) {
+    const statusEl  = document.getElementById('reports-status');
+    const contentEl = document.getElementById('reports-content');
+    statusEl.innerHTML  = '<span class="spinner"></span> Loading financial reports…';
+    contentEl.innerHTML = '';
+
+    try {
+      // Fetch income statements (quarterly), balance sheet (latest), and SEC filings in parallel
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+      const [incomeQ, incomeA, balSheet, secProfile] = await Promise.allSettled([
+        fmpFetch(`/income-statement?symbol=${ticker}&period=quarter&limit=5`),
+        fmpFetch(`/income-statement?symbol=${ticker}&period=annual&limit=2`),
+        fmpFetch(`/balance-sheet-statement?symbol=${ticker}&period=quarter&limit=1`),
+        fmpFetch(`/sec-profile?symbol=${ticker}`),
+      ]);
+
+      statusEl.innerHTML = '';
+      const frag = document.createDocumentFragment();
+
+      // ── Key metrics from latest quarter ──
+      const latestQ = incomeQ.status === 'fulfilled' ? incomeQ.value?.[0] : null;
+      const latestB = balSheet.status === 'fulfilled' ? balSheet.value?.[0] : null;
+      if (latestQ || latestB) {
+        const sec = document.createElement('div');
+        sec.className = 'reports-section';
+        const periodLabel = latestQ ? `${latestQ.period || ''} ${latestQ.fiscalYear || latestQ.date || ''}`.trim() : '';
+        sec.innerHTML = `<h3>Latest Quarter Highlights ${periodLabel ? `<span style="color:var(--text-dim);font-weight:400">(${periodLabel})</span>` : ''}</h3>`;
+        const grid = document.createElement('div');
+        grid.className = 'metrics-grid';
+        const metrics = [
+          { label: 'Revenue',         value: latestQ?.revenue,        fmt: fmtLarge },
+          { label: 'Gross Profit',    value: latestQ?.grossProfit,    fmt: fmtLarge },
+          { label: 'Net Income',      value: latestQ?.netIncome,      fmt: fmtLarge, signed: true },
+          { label: 'EPS (Diluted)',   value: latestQ?.epsDiluted,     fmt: v => `$${fmt(v)}`, signed: true },
+          { label: 'Total Assets',    value: latestB?.totalAssets,    fmt: fmtLarge },
+          { label: 'Total Debt',      value: latestB?.totalDebt,      fmt: fmtLarge },
+          { label: 'Cash',            value: latestB?.cashAndCashEquivalents, fmt: fmtLarge },
+          { label: 'Total Equity',    value: latestB?.totalStockholdersEquity, fmt: fmtLarge },
+        ];
+        metrics.forEach(m => {
+          const card = document.createElement('div');
+          card.className = 'metric-card';
+          const isPos = m.value > 0; const isNeg = m.value < 0;
+          const cls = m.signed ? (isPos ? 'up' : isNeg ? 'down' : '') : '';
+          card.innerHTML = `
+            <div class="metric-label">${m.label}</div>
+            <div class="metric-value ${cls}">${m.value != null ? m.fmt(m.value) : '—'}</div>
+          `;
+          grid.appendChild(card);
+        });
+        sec.appendChild(grid);
+        frag.appendChild(sec);
+      }
+
+      // ── Quarterly income table ──
+      const quarters = incomeQ.status === 'fulfilled' ? (incomeQ.value || []).slice(0, 5) : [];
+      if (quarters.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'reports-section';
+        sec.innerHTML = '<h3>Quarterly Income Statement</h3>';
+        const wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        const cols = [
+          { key: null,              label: 'Period',          f: (_, q) => `${q.period || ''} ${q.fiscalYear || q.date || ''}`.trim() },
+          { key: 'revenue',         label: 'Revenue',         f: fmtLarge },
+          { key: 'grossProfit',     label: 'Gross Profit',    f: fmtLarge },
+          { key: 'operatingIncome', label: 'Operating Inc.',  f: fmtLarge },
+          { key: 'netIncome',       label: 'Net Income',      f: fmtLarge },
+          { key: 'epsDiluted',      label: 'EPS (Diluted)',   f: v => `$${fmt(v)}` },
+          { key: 'ebitda',          label: 'EBITDA',          f: fmtLarge },
+        ];
+        const table = document.createElement('table');
+        table.innerHTML = `<thead><tr>${cols.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>`;
+        const tbody = document.createElement('tbody');
+        quarters.forEach(q => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = cols.map(c => `<td>${c.key === null ? c.f(null, q) : q[c.key] != null ? c.f(q[c.key]) : '—'}</td>`).join('');
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        sec.appendChild(wrap);
+        frag.appendChild(sec);
+      }
+
+      // ── Annual income table ──
+      const annual = incomeA.status === 'fulfilled' ? (incomeA.value || []) : [];
+      if (annual.length > 0) {
+        const sec = document.createElement('div');
+        sec.className = 'reports-section';
+        sec.innerHTML = '<h3>Annual Income Statement</h3>';
+        const wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        const cols = [
+          { key: null,              label: 'Year',           f: (_, a) => `FY ${a.fiscalYear || a.date || ''}` },
+          { key: 'revenue',         label: 'Revenue',        f: fmtLarge },
+          { key: 'grossProfit',     label: 'Gross Profit',   f: fmtLarge },
+          { key: 'operatingIncome', label: 'Operating Inc.', f: fmtLarge },
+          { key: 'netIncome',       label: 'Net Income',     f: fmtLarge },
+          { key: 'epsDiluted',      label: 'EPS (Diluted)',  f: v => `$${fmt(v)}` },
+        ];
+        const table = document.createElement('table');
+        table.innerHTML = `<thead><tr>${cols.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>`;
+        const tbody = document.createElement('tbody');
+        annual.forEach(a => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = cols.map(c => `<td>${c.key === null ? c.f(null, a) : a[c.key] != null ? c.f(a[c.key]) : '—'}</td>`).join('');
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        sec.appendChild(wrap);
+        frag.appendChild(sec);
+      }
+
+      // ── SEC Filings (EDGAR links) ──
+      const secData = secProfile.status === 'fulfilled' ? secProfile.value?.[0] : null;
+      const secSection = document.createElement('div');
+      secSection.className = 'reports-section';
+      secSection.innerHTML = '<h3>SEC Filings</h3>';
+      if (secData?.secFilingsUrl) {
+        const baseUrl = secData.secFilingsUrl;
+        const filingTypes = [
+          { type: '10-K', label: 'Annual Report (10-K)',     desc: 'Full-year audited financials' },
+          { type: '10-Q', label: 'Quarterly Report (10-Q)',  desc: 'Quarterly unaudited financials' },
+          { type: '8-K',  label: 'Current Report (8-K)',     desc: 'Material events & press releases' },
+          { type: 'DEF 14A', label: 'Proxy Statement (DEF 14A)', desc: 'Executive pay & shareholder votes' },
+        ];
+        filingTypes.forEach(f => {
+          const item = document.createElement('div');
+          item.className = 'filing-item';
+          item.innerHTML = `
+            <span class="filing-type">${escHtml(f.type)}</span>
+            <div class="filing-info">
+              <div class="filing-desc">${escHtml(f.label)}</div>
+              <div class="filing-date">${escHtml(f.desc)}</div>
+            </div>
+            <a class="filing-link" href="${escHtml(baseUrl)}&type=${encodeURIComponent(f.type)}&dateb=&owner=include&count=10&search_text=" target="_blank" rel="noopener">View on EDGAR →</a>
+          `;
+          secSection.appendChild(item);
+        });
+        const edgarNote = document.createElement('p');
+        edgarNote.style.cssText = 'font-size:.78rem;color:var(--text-dim);margin-top:.75rem';
+        edgarNote.textContent = `CIK: ${secData.cik || '—'} · Fiscal year end: ${secData.fiscalYearEnd || '—'} · Links open SEC EDGAR in a new tab.`;
+        secSection.appendChild(edgarNote);
+      } else {
+        secSection.innerHTML += '<p class="empty-msg">SEC filing links unavailable for this ticker.</p>';
+      }
+      frag.appendChild(secSection);
+
+      if (quarters.length === 0 && annual.length === 0 && !secData) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-msg';
+        empty.textContent = 'No financial report data available for this ticker.';
+        frag.appendChild(empty);
+      }
+
+      contentEl.appendChild(frag);
+
+    } catch (err) {
+      statusEl.innerHTML = `<span class="error-msg">⚠️ Failed to load reports: ${escHtml(err.message)}</span>`;
+    }
+  }
+
+  // ── PEOPLE ─────────────────────────────────────────────────────────────────
+  async function loadPeople(ticker) {
+    const statusEl = document.getElementById('people-status');
+    const gridEl   = document.getElementById('people-grid');
+    statusEl.innerHTML = '<span class="spinner"></span> Loading executives & board…';
+    gridEl.innerHTML   = '';
+
+    try {
+      const data = await fmpFetch(`/key-executives?symbol=${ticker}`);
+      if (!Array.isArray(data) || data.length === 0) {
+        statusEl.innerHTML = '<span class="empty-msg">No personnel data found for this company.</span>';
+        return;
+      }
+      allPeople = data.map(p => ({ ...p, category: categorize(p.title || '') }));
+      statusEl.innerHTML = '';
+      renderPeople();
+    } catch (err) {
+      statusEl.innerHTML = `<span class="error-msg">⚠️ Failed to load people: ${escHtml(err.message)}</span>`;
+    }
+  }
+
+  function categorize(title) {
+    const t = title.toLowerCase();
+    if (/\b(chief|ceo|cfo|coo|cto|cio|cmo|cso|chro|clo|president|executive vice president|evp|svp|senior vice)\b/.test(t)) return 'csuite';
+    if (/\b(director|board|chairman|chairwoman|chairperson|chair|trustee|governor|independent)\b/.test(t)) return 'board';
+    return 'other';
+  }
+
+  document.getElementById('people-filters').addEventListener('click', e => {
+    const chip = e.target.closest('.pf-chip');
+    if (!chip) return;
+    document.querySelectorAll('.pf-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    renderPeople();
+  });
+
+  function renderPeople() {
+    const gridEl = document.getElementById('people-grid');
+    gridEl.innerHTML = '';
+    const visible = activeFilter === 'all' ? allPeople : allPeople.filter(p => p.category === activeFilter);
+    if (visible.length === 0) {
+      gridEl.innerHTML = `<p class="empty-msg" style="grid-column:1/-1">No people found for this filter.</p>`;
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    visible.forEach(p => frag.appendChild(buildPersonCard(p)));
+    gridEl.appendChild(frag);
+  }
+
+  function buildPersonCard(p) {
+    const card = document.createElement('div');
+    card.className = 'person-card';
+
+    const initials = (p.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const catClass = { csuite: 'cat-csuite', board: 'cat-board', other: 'cat-other' }[p.category];
+    const catLabel = { csuite: 'C-Suite', board: 'Board', other: 'Other' }[p.category];
+
+    const payStr = p.pay != null && p.pay > 0
+      ? `Compensation: ${fmtLarge(p.pay)} ${p.currencyPay || 'USD'}`
+      : '';
+
+    card.innerHTML = `
+      <div class="person-avatar">${initials}</div>
+      <div class="person-name">${escHtml(p.name || '—')}</div>
+      <div class="person-title">${escHtml(p.title || '')}</div>
+      <span class="person-category ${catClass}">${catLabel}</span>
+      ${payStr ? `<div class="person-pay">${escHtml(payStr)}</div>` : ''}
+    `;
+    return card;
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function setSearchStatus(html) { searchStatus.innerHTML = html; }
+  function setText(id, val) { document.getElementById(id).textContent = val; }
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmt(n) { return Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+  function fmtLarge(n) {
+    const v = Math.abs(n); const sign = n < 0 ? '-' : '';
+    if (v >= 1e12) return sign + '$' + (v / 1e12).toFixed(2) + 'T';
+    if (v >= 1e9)  return sign + '$' + (v / 1e9).toFixed(2)  + 'B';
+    if (v >= 1e6)  return sign + '$' + (v / 1e6).toFixed(2)  + 'M';
+    if (v >= 1e3)  return sign + '$' + (v / 1e3).toFixed(1)  + 'K';
+    return sign + '$' + fmt(n);
+  }
+  function formatDate(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+    catch { return ''; }
+  }
+</script>
+</body>
+</html>
